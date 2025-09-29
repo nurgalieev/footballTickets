@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Кайрат — продажа билетов</title>
+  <style>
+    :root{
+      --yellow:#f6c018;
+      --muted:#6b7280;
+      --bg:#f7f7f8;
+      --card:#fff;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; margin:0; background:var(--bg); color:#111}
+    .container{max-width:1100px;margin:24px auto;padding:16px}
+    header{background:var(--card);padding:14px 16px;border-radius:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+    .logo{width:44px;height:44px;background:var(--yellow);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000}
+    h1{font-size:20px;margin:0}
+    nav{margin-left:auto;display:flex;gap:8px;align-items:center}
+    button.btn{background:var(--yellow);border:0;padding:8px 12px;border-radius:6px;font-weight:600;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid #e5e7eb;padding:6px 10px;border-radius:6px;cursor:pointer}
+
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:18px}
+    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+    .match{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;border:1px solid #eef2f7;margin-bottom:8px}
+    .match .info{font-weight:600}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* seat map */
+    .seat-area{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .field{background:#cfe7d9;padding:8px;border-radius:6px;font-size:13px;color:#064; width:60% ; text-align:center}
+    .seat-grid{display:grid;gap:6px;}
+    .seat{width:36px;height:36px;border-radius:4px;border:1px solid #d1d5db;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer}
+    .seat.vip{background:#fef3c7}
+    .seat.main{background:#ffffff}
+    .seat.low{background:#f8fafc}
+    .seat.sold{background:#e6e6e6;color:#7a7a7a;cursor:not-allowed}
+    .seat.selected{background:var(--yellow);color:#000;border-color:#b28a00}
+    .legend{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;color:var(--muted)}
+    .legend span{display:inline-flex;align-items:center;gap:6px}
+    .chip{width:16px;height:12px;border-radius:3px;display:inline-block;border:1px solid #cfcfcf}
+
+    .summary{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+    .summary .left{font-size:14px}
+    .summary .right{display:flex;gap:8px;align-items:center}
+
+    /* modal */
+    .modal-back{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:50}
+    .modal{background:var(--card);padding:18px;border-radius:10px;width:100%;max-width:520px}
+    label{display:block;font-size:13px;margin-bottom:6px}
+    input[type="text"]{width:100%;padding:8px;border-radius:6px;border:1px solid #e5e7eb}
+
+    .notice{margin-top:12px;padding:10px;border-radius:8px;font-size:14px}
+
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+
+    @media (max-width:880px){
+      .grid{grid-template-columns:1fr; }
+      .field{width:80%}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">K</div>
+      <div>
+        <h1>Кайрат — билеты</h1>
+        <div class="small">Покупайте билеты на домашние матчи</div>
+      </div>
+      <nav>
+        <button class="ghost">О клубе</button>
+        <button class="ghost">Контакты</button>
+        <button class="btn">Войти</button>
+      </nav>
+    </header>
+
+    <main class="grid">
+      <section>
+        <div class="card">
+          <h3 style="margin-top:0">Ближайшие матчи</h3>
+          <div id="matchesList"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin-top:0">Карта стадиона — выберите место</h3>
+          <div id="seatContainer" class="seat-area">
+            <!-- seatmap injected here -->
+          </div>
+
+          <div class="summary">
+            <div class="left">Выбрано: <strong id="selectedCount">0</strong> мест</div>
+            <div class="right">
+              <div class="small">Итого: <strong id="totalSum">0 ₸</strong></div>
+              <button id="toBuyBtn" class="btn" disabled>Оформить</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card">
+          <h3 style="margin-top:0">Информация о матче</h3>
+          <div class="small" id="matchInfo"></div>
+          <hr style="margin:12px 0">
+          <div>
+            <div class="small">Категории:</div>
+            <ul id="priceList" style="padding-left:18px;margin-top:6px"></ul>
+          </div>
+          <div style="margin-top:12px" class="small">Оплата:</div>
+        </div>
+      </aside>
+    </main>
+
+    <div id="noticeWrap"></div>
+
+    <footer>© <span id="year"></span> Кайрат</footer>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" style="display:none" class="modal-back" aria-hidden="true">
+    <div class="modal">
+      <h3 style="margin-top:0">Оформление билетов</h3>
+      <div class="small" id="modalSeats">Выбрано: —</div>
+      <div style="margin-top:10px">
+        <label>Имя</label>
+        <input id="buyerName" type="text" placeholder="Ваше имя">
+      </div>
+      <div style="margin-top:10px">
+        <label>Телефон</label>
+        <input id="buyerPhone" type="text" placeholder="+7 7xx xxx xxxx">
+      </div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+        <button id="cancelBtn" class="ghost">Отмена</button>
+        <button id="payBtn" class="btn">Оплатить</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- данные матчей ---
+    const matches = [
+      { id:1, home:"Кайрат", away:"Атырау", date:"2025-10-05", time:"19:00", stadium:"Аль-Фараби Арена", prices:{VIP:12000, Main:6000, Low:2500} },
+      { id:2, home:"Кайрат", away:"Real Madrid", date:"2025-10-20", time:"21:45", stadium:"Центральный Стадион", prices:{VIP:14000, Main:7000, Low:3000} }
+    ];
+
+    // для каждого матча создаём карту мест
+    const ROWS = 10, COLS = 12;
+    matches.forEach(m => m.seatMap = generateSeatMap(ROWS, COLS));
+
+    // текущее состояние
+    let currentMatchIndex = 0;
+    let selectedSeats = []; // {r,c,section}
+
+    // init
+    document.getElementById('year').textContent = new Date().getFullYear();
+    renderMatches();
+    openMatch(0);
+
+    // --- функции ---
+    function generateSeatMap(rows, cols){
+      const map = [];
+      for(let r=0;r<rows;r++){
+        const row = [];
+        for(let c=0;c<cols;c++){
+          let section = 'Low';
+          if (r < 2) section = 'VIP';
+          else if (r < 6) section = 'Main';
+          const sold = Math.random() < 0.08; // 8% занято для демо
+          row.push({row:r,col:c,section,status:sold ? 'sold' : 'free'});
+        }
+        map.push(row);
+      }
+      return map;
+    }
+
+    function formatCurrency(n){
+      return n.toLocaleString('ru-RU') + ' ₸';
+    }
+
+    function renderMatches(){
+      const wrap = document.getElementById('matchesList');
+      wrap.innerHTML = '';
+      matches.forEach((m, idx) => {
+        const el = document.createElement('div');
+        el.className = 'match';
+        el.innerHTML = `
+          <div>
+            <div class="info">${m.home} — ${m.away}</div>
+            <div class="small">${m.date} • ${m.time} • ${m.stadium}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="small">от ${formatCurrency(Object.values(m.prices)[2])}</div>
+            <button class="btn" data-idx="${idx}" type="button">Купить</button>
+            <button class="ghost" data-open="${idx}" type="button">Открыть</button>
+          </div>
+        `;
+        wrap.appendChild(el);
+      });
+
+      // обработчики
+      wrap.querySelectorAll('button.btn').forEach(b=>{
+        b.addEventListener('click', e=>{
+          const idx = +e.currentTarget.dataset.idx;
+          openMatch(idx);
+          showModal();
+        });
+      });
+      wrap.querySelectorAll('button.ghost').forEach(b=>{
+        b.addEventListener('click', e=>{
+          const idx = +e.currentTarget.dataset.open;
+          openMatch(idx);
+        });
+      });
+    }
+
+    function openMatch(index){
+      currentMatchIndex = index;
+      selectedSeats = [];
+      renderMatchInfo();
+      renderSeatMap();
+      updateSummary();
+    }
+
+    function renderMatchInfo(){
+      const m = matches[currentMatchIndex];
+      const info = document.getElementById('matchInfo');
+      info.innerHTML = `<strong>${m.home} — ${m.away}</strong><div class="small">${m.date} • ${m.time}</div><div class="small">${m.stadium}</div>`;
+      const pl = document.getElementById('priceList');
+      pl.innerHTML = '';
+      Object.entries(m.prices).forEach(([k,v])=>{
+        const li = document.createElement('li');
+        li.textContent = `${k} — ${formatCurrency(v)}`;
+        pl.appendChild(li);
+      });
+    }
+
+    function renderSeatMap(){
+      const container = document.getElementById('seatContainer');
+      container.innerHTML = '';
+      const m = matches[currentMatchIndex];
+
+      // field
+      const field = document.createElement('div');
+      field.className = 'field';
+      field.textContent = 'Поле';
+      container.appendChild(field);
+
+      // seat grid
+      const grid = document.createElement('div');
+      grid.className = 'seat-grid';
+      grid.style.gridTemplateColumns = `repeat(${COLS}, 36px)`;
+      m.seatMap.forEach((row, r)=>{
+        row.forEach((seat, c)=>{
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = `seat-${currentMatchIndex}-${r}-${c}`;
+          btn.className = 'seat ' + (seat.section === 'VIP' ? 'vip' : seat.section === 'Main' ? 'main' : 'low');
+          btn.textContent = c+1;
+          if (seat.status === 'sold'){
+            btn.classList.add('sold');
+            btn.disabled = true;
+            btn.title = `Ряд ${r+1}, Место ${c+1} — продано`;
+          } else {
+            btn.title = `Ряд ${r+1}, Место ${c+1} — ${seat.section}`;
+            btn.addEventListener('click', ()=>{
+              toggleSeat(r,c,btn);
+            });
+          }
+          grid.appendChild(btn);
+        });
+      });
+      container.appendChild(grid);
+
+      // legend
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+      legend.innerHTML = `
+        <span><i class="chip" style="background:#fef3c7;border-color:#f0c14b"></i> VIP</span>
+        <span><i class="chip" style="background:#fff;border-color:#d1d5db"></i> Main</span>
+        <span><i class="chip" style="background:#f8fafc;border-color:#d1d5db"></i> Low</span>
+        <span><i class="chip" style="background:#e6e6e6;border-color:#d1d5db"></i> Продано</span>
+        <span><i class="chip" style="background:var(--yellow);border-color:#b38b00"></i> Выбрано</span>
+      `;
+      container.appendChild(legend);
+    }
+
+    function toggleSeat(r,c,btnEl){
+      const m = matches[currentMatchIndex];
+      const seat = m.seatMap[r][c];
+      const key = `${r}-${c}`;
+      const idx = selectedSeats.findIndex(s=>s.key===key);
+      if (idx >= 0){
+        // снять выбор
+        selectedSeats.splice(idx,1);
+        btnEl.classList.remove('selected');
+      } else {
+        selectedSeats.push({key,row:r,col:c,section:seat.section});
+        btnEl.classList.add('selected');
+      }
+      updateSummary();
+    }
+
+    function updateSummary(){
+      document.getElementById('selectedCount').textContent = selectedSeats.length;
+      const total = selectedSeats.reduce((sum,s)=>{
+        return sum + priceBySection(s.section, matches[currentMatchIndex].prices);
+      }, 0);
+      document.getElementById('totalSum').textContent = formatCurrency(total);
+      document.getElementById('toBuyBtn').disabled = selectedSeats.length === 0;
+    }
+
+    function priceBySection(section, priceObj){
+      return priceObj[section] || 0;
+    }
+
+    // modal logic
+    const modal = document.getElementById('modal');
+    const toBuyBtn = document.getElementById('toBuyBtn');
+    toBuyBtn.addEventListener('click', showModal);
+    document.getElementById('cancelBtn').addEventListener('click', hideModal);
+    document.getElementById('payBtn').addEventListener('click', buyTickets);
+
+    function showModal(){
+      if (selectedSeats.length === 0){
+        showNotice('Выберите места перед оформлением', 'error');
+        return;
+      }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden','false');
+      document.getElementById('modalSeats').textContent = 'Выбрано: ' + selectedSeats.map(s=>`Ряд ${s.row+1} Место ${s.col+1} (${s.section})`).join('; ');
+    }
+    function hideModal(){
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden','true');
+    }
+
+    function buyTickets(){
+      const name = document.getElementById('buyerName').value.trim();
+      const phone = document.getElementById('buyerPhone').value.trim();
+      if (!name || !phone){
+        showNotice('Заполните имя и телефон', 'error');
+        return;
+      }
+      // помечаем места как проданные
+      const m = matches[currentMatchIndex];
+      selectedSeats.forEach(s=>{
+        m.seatMap[s.row][s.col].status = 'sold';
+        const btn = document.getElementById(`seat-${currentMatchIndex}-${s.row}-${s.col}`);
+        if (btn){
+          btn.classList.remove('selected');
+          btn.classList.add('sold');
+          btn.disabled = true;
+          btn.title = `Ряд ${s.row+1}, Место ${s.col+1} — продано`;
+          btn.removeEventListener('click',()=>{}); // best-effort
+        }
+      });
+      const count = selectedSeats.length;
+      const total = selectedSeats.reduce((sum,s)=>{
+        return sum + priceBySection(s.section, m.prices);
+      }, 0);
+      selectedSeats = [];
+      updateSummary();
+      hideModal();
+      document.getElementById('buyerName').value=''; document.getElementById('buyerPhone').value='';
+      showNotice(`Покупка завершена: ${count} билет(ов), сумма ${formatCurrency(total)}. Спасибо, ${name}!`, 'success');
+    }
+
+    function showNotice(msg, type='info'){
+      const wrap = document.getElementById('noticeWrap');
+      wrap.innerHTML = `<div class="notice" style="${type==='error'? 'background:#fee2e2;color:#9b1c1c' : type==='success' ? 'background:#ecfdf5;color:#065f46' : 'background:#f0f9ff;color:#0369a1'}">${msg}</div>`;
+      setTimeout(()=>{ wrap.innerHTML=''; }, 6000);
+    }
+
+  </script>
+</body>
+</html>
